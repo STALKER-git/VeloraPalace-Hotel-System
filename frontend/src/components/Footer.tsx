@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Crown, MapPin, Phone, Mail, Instagram, Facebook, Twitter } from 'lucide-react';
+import { MapPin, Phone, Mail, Instagram, Facebook, Twitter } from 'lucide-react';
 import { useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -53,16 +53,12 @@ export default function Footer() {
         <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-3 mb-6">
-              <Crown size={20} style={{ color: 'var(--gold)' }} />
-              <div className="flex flex-col leading-none">
-                <span className="font-display text-xl tracking-[0.25em] font-light" style={{ color: 'var(--text-primary)', fontFamily: 'Cormorant Garamond, serif' }}>
-                  VELORA
-                </span>
-                <span className="text-[7px] tracking-[0.45em] font-semibold" style={{ color: 'var(--gold)', fontFamily: 'Montserrat, sans-serif' }}>
-                  PALACE
-                </span>
-              </div>
+            <div className="flex flex-col items-center mb-6" style={{ width: '45px', filter: 'drop-shadow(0 0 4px rgba(201,168,76,0.25))' }}>
+              <img src="/logo/tete 1.svg" alt="" style={{ width: '100%', marginBottom: '1px', transform: 'translateX(-3px)' }} />
+              <img src="/logo/V.svg" alt="" style={{ width: '14px', marginTop: '1px', marginBottom: '1px' }} />
+              <img src="/logo/body 1.svg" alt="" style={{ width: '100%', marginBottom: '2px' }} />
+              <img src="/logo/VELORA.svg" alt="Velora" style={{ width: '40px', marginBottom: '1px' }} />
+              <img src="/logo/PALACE.svg" alt="Palace" style={{ width: '24px' }} />
             </div>
             <p style={{ fontFamily: 'Montserrat', fontSize: '12px', lineHeight: '1.8', color: 'var(--text-muted)', fontWeight: 300 }}>
               {t.footer.desc}

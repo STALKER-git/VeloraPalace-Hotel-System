@@ -323,7 +323,7 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; }
 }
 .luxury-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-glow); }
 .luxury-input::placeholder { color: var(--text-muted); font-weight: 300; }
-.luxury-input option { background: var(--bg-secondary); color: var(--text-primary); }
+.luxury-input option { background: #111111; color: #f5f0e8; }
 
 select.luxury-input {
   appearance: none;
@@ -331,6 +331,18 @@ select.luxury-input {
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 40px;
+}
+
+/* Fix option elements in all select dropdowns (not just .luxury-input) */
+select option {
+  background: #111111;
+  color: #f5f0e8;
+  padding: 8px 12px;
+}
+
+.light-mode select option {
+  background: #ffffff;
+  color: #1a1208;
 }
 
 .light-mode .luxury-input {

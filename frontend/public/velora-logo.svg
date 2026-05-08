@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 680">
+  <defs>
+    <style>
+      .bg { fill: #0a0a0a; }
+    </style>
+  </defs>
+  <rect class="bg" width="500" height="680"/>
+  
+  <!-- Simplified crown/V logo for favicon -->
+  <g transform="translate(250, 100)">
+    <!-- Crown -->
+    <g fill="#D4AF37">
+      <path d="M-30,0 L-20,-25 L-10,-5 L0,-30 L10,-5 L20,-25 L30,0 Z" stroke="#D4AF37" stroke-width="1"/>
+      <rect x="-35" y="0" width="70" height="5" rx="2"/>
+      <circle cx="-20" cy="-18" r="3"/>
+      <circle cx="0" cy="-23" r="3.5"/>
+      <circle cx="20" cy="-18" r="3"/>
+    </g>
+  </g>
+  
+  <!-- V Letter -->
+  <g transform="translate(250, 180)" fill="#D4AF37" fill-opacity="0.85">
+    <text text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="120" font-weight="400" y="90">V</text>
+  </g>
+  
+  <!-- Ornamental frame -->
+  <g stroke="#D4AF37" fill="none" stroke-width="1.5" opacity="0.7">
+    <path d="M150,80 Q150,60 170,60 L330,60 Q350,60 350,80 L350,370 Q350,440 250,480 Q150,440 150,370 Z"/>
+    <path d="M170,90 Q170,75 185,75 L315,75 Q330,75 330,90 L330,360 Q330,420 250,455 Q170,420 170,360 Z" stroke-dasharray="4,4" opacity="0.4"/>
+  </g>
+  
+  <!-- Scrollwork left -->
+  <g stroke="#D4AF37" fill="none" stroke-width="1.5" opacity="0.6">
+    <path d="M145,180 Q110,180 110,150 Q110,120 140,120"/>
+    <path d="M145,250 Q100,250 100,210 Q100,170 125,155"/>
+    <path d="M145,320 Q110,320 110,350 Q110,380 140,380"/>
+  </g>
+  
+  <!-- Scrollwork right -->
+  <g stroke="#D4AF37" fill="none" stroke-width="1.5" opacity="0.6">
+    <path d="M355,180 Q390,180 390,150 Q390,120 360,120"/>
+    <path d="M355,250 Q400,250 400,210 Q400,170 375,155"/>
+    <path d="M355,320 Q390,320 390,350 Q390,380 360,380"/>
+  </g>
+  
+  <!-- Decorative leaf/floral elements -->
+  <g fill="#D4AF37" opacity="0.5">
+    <ellipse cx="100" cy="140" rx="15" ry="5" transform="rotate(-45, 100, 140)"/>
+    <ellipse cx="400" cy="140" rx="15" ry="5" transform="rotate(45, 400, 140)"/>
+    <ellipse cx="90" cy="370" rx="15" ry="5" transform="rotate(45, 90, 370)"/>
+    <ellipse cx="410" cy="370" rx="15" ry="5" transform="rotate(-45, 410, 370)"/>
+  </g>
+  
+  <!-- VELORA text -->
+  <text x="250" y="560" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="60" font-weight="400" fill="#D4AF37" letter-spacing="15" opacity="0.85">VELORA</text>
+  
+  <!-- PALACE text -->
+  <text x="250" y="620" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="400" fill="#B89113" letter-spacing="12">PALACE</text>
+</svg>

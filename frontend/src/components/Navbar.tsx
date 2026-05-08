@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, ChevronDown, User, Crown } from 'lucide-react';
+import { Menu, X, Sun, Moon, ChevronDown, User } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -65,11 +65,10 @@ export default function Navbar() {
     <>
       <nav
         ref={navRef}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled || !isHome
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled || !isHome
             ? 'glass border-b'
             : 'bg-transparent'
-        }`}
+          }`}
         style={{
           borderBottomColor: scrolled || !isHome ? 'rgba(201,168,76,0.1)' : 'transparent',
         }}
@@ -77,27 +76,21 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="relative">
-                <Crown
-                  size={22}
-                  className="text-gold transition-transform duration-300 group-hover:scale-110"
-                  style={{ color: 'var(--gold)' }}
-                />
-              </div>
-              <div className="flex flex-col leading-none">
-                <span
-                  className="font-display text-xl tracking-[0.25em] font-light"
-                  style={{ color: 'var(--text-primary)', fontFamily: 'Cormorant Garamond, serif' }}
-                >
-                  VELORA
-                </span>
-                <span
-                  className="text-[7px] tracking-[0.45em] font-semibold"
-                  style={{ color: 'var(--gold)', fontFamily: 'Montserrat, sans-serif' }}
-                >
-                  PALACE
-                </span>
+            <Link to="/" className="flex items-center group">
+              <div
+                className="flex flex-col items-center transition-transform duration-300 group-hover:scale-105"
+                style={{ width: '45px', filter: 'drop-shadow(0 0 4px rgba(201,168,76,0.25))' }}
+              >
+                {/* Tete - Crown/Top ornament */}
+                <img src="/logo/tete 1.svg" alt="" style={{ width: '100%', marginBottom: '1px', transform: 'translateX(-3px)' }} />
+                {/* V Letter */}
+                <img src="/logo/V.svg" alt="" style={{ width: '14px', marginTop: '1px', marginBottom: '1px' }} />
+                {/* Body - Bottom ornament */}
+                <img src="/logo/body 1.svg" alt="" style={{ width: '100%', marginBottom: '2px' }} />
+                {/* VELORA text */}
+                <img src="/logo/VELORA.svg" alt="Velora" style={{ width: '40px', marginBottom: '1px' }} />
+                {/* PALACE text */}
+                <img src="/logo/PALACE.svg" alt="Palace" style={{ width: '24px' }} />
               </div>
             </Link>
 
@@ -181,9 +174,9 @@ export default function Navbar() {
                 <Link
                   to="/account"
                   className="flex items-center justify-center transition-all duration-300 rounded-full hover:scale-105"
-                  style={{ 
-                    width: '38px', 
-                    height: '38px', 
+                  style={{
+                    width: '38px',
+                    height: '38px',
                     border: '1px solid var(--gold)',
                     background: 'rgba(201,168,76,0.1)',
                     overflow: 'hidden'
@@ -261,7 +254,7 @@ export default function Navbar() {
                   <>
                     <Link to="/account" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-4 block w-full btn-outline-luxury text-center">
                       <div className="w-6 h-6 rounded-full overflow-hidden border border-gold flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.1)' }}>
-                          <User size={12} style={{ color: 'var(--gold)' }} />
+                        <User size={12} style={{ color: 'var(--gold)' }} />
                       </div>
                       <span>{`${profile?.prenom || ''} ${profile?.nom_utilisateur || ''}`.trim() || t.nav.account}</span>
                     </Link>

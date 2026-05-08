@@ -46,6 +46,14 @@ export default function ClientDashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [cancellingRes, setCancellingRes] = useState<string | null>(null);
 
+  // Custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ show: false, title: '', message: '', onConfirm: () => {} });
+
   // Editable fields
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
@@ -234,8 +242,16 @@ export default function ClientDashboard() {
     }
   };
 
+  const showConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({ show: true, title, message, onConfirm });
+  };
+
+  const handleConfirmModalAction = () => {
+    confirmModal.onConfirm();
+    setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} });
+  };
+
   const handleCancelRoomRes = async (id: string) => {
-    if (!confirm('Cancel this room reservation?')) return;
     setCancellingRes(id);
     try {
       const { error } = await supabase
@@ -295,7 +311,6 @@ export default function ClientDashboard() {
   };
 
   const handleCancelRestaurantRes = async (id: string, elId: string) => {
-    if (!confirm('Cancel this table reservation?')) return;
     try {
       const el = document.getElementById(elId);
       if (el) {
@@ -630,7 +645,11 @@ export default function ClientDashboard() {
                                   <Edit2 size={12} /> {t.clientDashboard.editRes}
                                 </button>
                                 <button
-                                  onClick={() => handleCancelRoomRes(res.id)}
+                                  onClick={() => showConfirmModal(
+                                    t.clientDashboard.cancelRes,
+                                    'Are you sure you want to cancel this room reservation?',
+                                    () => handleCancelRoomRes(res.id)
+                                  )}
                                   disabled={cancellingRes === res.id}
                                   className="text-[10px] uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 disabled:opacity-50"
                                 >
@@ -685,7 +704,11 @@ export default function ClientDashboard() {
                             {res.statut !== 'annulee' && res.statut !== 'terminee' && (
                               <div className="mt-4 pt-4 border-t border-border/30 flex justify-end">
                                 <button
-                                  onClick={() => handleCancelRestaurantRes(res.id, `rest-res-${res.id}`)}
+                                  onClick={() => showConfirmModal(
+                                    t.clientDashboard.cancelRes,
+                                    'Are you sure you want to cancel this table reservation?',
+                                    () => handleCancelRestaurantRes(res.id, `rest-res-${res.id}`)
+                                  )}
                                   className="text-[10px] uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center gap-2"
                                 >
                                   <XCircle size={12} /> {t.clientDashboard.cancelRes}
@@ -942,6 +965,35 @@ export default function ClientDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CUSTOM CONFIRMATION MODAL ═══ */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="luxury-card max-w-sm w-full p-8 animate-scale-in" style={{ borderColor: 'rgba(201,168,76,0.3)' }}>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full border border-red-500/30 bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle size={24} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-display text-text-primary mb-2">{confirmModal.title}</h3>
+              <p className="text-sm text-text-muted font-light">{confirmModal.message}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} })}
+                className="flex-1 py-3 text-[10px] uppercase tracking-widest border border-border text-text-muted hover:text-white hover:border-white/30 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmModalAction}
+                className="flex-1 py-3 text-[10px] uppercase tracking-widest bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
