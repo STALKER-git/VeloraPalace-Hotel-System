@@ -9,7 +9,7 @@ import {
   User, Calendar, Star, Crown, History, Settings, LogOut,
   Camera, Save, Mail, BedDouble,
   CheckCircle, XCircle, Loader2, ChevronRight, Utensils,
-  Bell, AlertTriangle, X, Trash2
+  Bell, AlertTriangle, X, Trash2, Edit2
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -38,6 +38,13 @@ export default function ClientDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Room reservation edit/cancel
+  const [editingRes, setEditingRes] = useState<ReservationChambre | null>(null);
+  const [editArrival, setEditArrival] = useState('');
+  const [editDeparture, setEditDeparture] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [cancellingRes, setCancellingRes] = useState<string | null>(null);
 
   // Editable fields
   const [nom, setNom] = useState('');
@@ -224,6 +231,66 @@ export default function ClientDashboard() {
       alert('Error saving: ' + (err.message || 'Unknown error'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelRoomRes = async (id: string) => {
+    if (!confirm('Cancel this room reservation?')) return;
+    setCancellingRes(id);
+    try {
+      const { error } = await supabase
+        .from('reservations_chambres')
+        .update({ statut: 'annulee' })
+        .eq('id', id);
+      if (error) throw error;
+      setReservations(prev => prev.map(r => r.id === id ? { ...r, statut: 'annulee' } : r));
+      setSuccessMsg('Room reservation cancelled.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err: any) {
+      alert('Error cancelling: ' + err.message);
+    } finally {
+      setCancellingRes(null);
+    }
+  };
+
+  const handleOpenEditRes = (res: ReservationChambre) => {
+    setEditingRes(res);
+    setEditArrival(res.date_arrivee);
+    setEditDeparture(res.date_depart);
+  };
+
+  const handleSaveEditRes = async () => {
+    if (!editingRes) return;
+    if (!editArrival || !editDeparture) {
+      alert('Please select both arrival and departure dates.');
+      return;
+    }
+    const arrival = new Date(editArrival);
+    const departure = new Date(editDeparture);
+    if (departure <= arrival) {
+      alert('Check-out date must be after check-in date.');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('reservations_chambres')
+        .update({ date_arrivee: editArrival, date_depart: editDeparture })
+        .eq('id', editingRes.id);
+      if (error) throw error;
+      setReservations(prev =>
+        prev.map(r => r.id === editingRes.id
+          ? { ...r, date_arrivee: editArrival, date_depart: editDeparture }
+          : r
+        )
+      );
+      setSuccessMsg('Reservation updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      setEditingRes(null);
+    } catch (err: any) {
+      alert('Error saving changes: ' + err.message);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -553,6 +620,27 @@ export default function ClientDashboard() {
                                 </span>
                               </div>
                             </div>
+                            {/* Edit / Cancel actions */}
+                            {res.statut === 'en_attente' && (
+                              <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-end gap-4">
+                                <button
+                                  onClick={() => handleOpenEditRes(res)}
+                                  className="text-[10px] uppercase tracking-widest text-gold hover:text-white transition-colors flex items-center gap-2"
+                                >
+                                  <Edit2 size={12} /> {t.clientDashboard.editRes}
+                                </button>
+                                <button
+                                  onClick={() => handleCancelRoomRes(res.id)}
+                                  disabled={cancellingRes === res.id}
+                                  className="text-[10px] uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                >
+                                  {cancellingRes === res.id
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <XCircle size={12} />}
+                                  {t.clientDashboard.cancelRes}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -671,6 +759,66 @@ export default function ClientDashboard() {
           )}
         </div>
       </div>
+
+      {/* ═══ EDIT ROOM RESERVATION MODAL ═══ */}
+      {editingRes && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="luxury-card max-w-md w-full p-8" style={{ borderColor: 'rgba(201,168,76,0.3)' }}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-display text-gold">{t.clientDashboard.editResTitle}</h3>
+              <button onClick={() => setEditingRes(null)} className="text-text-muted hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-3 p-3 bg-gold/5 border border-gold/20 rounded">
+              <p className="text-[10px] uppercase tracking-widest text-gold mb-1">Reference</p>
+              <p className="text-sm text-white font-display">{editingRes.reference_reservation}</p>
+              <p className="text-xs text-text-muted mt-1">{editingRes.chambres?.type_chambre}</p>
+            </div>
+
+            <div className="space-y-5 mt-6">
+              <div>
+                <label className="block text-[10px] uppercase text-text-secondary tracking-widest mb-3">{t.clientDashboard.checkIn}</label>
+                <input
+                  type="date"
+                  value={editArrival}
+                  onChange={e => setEditArrival(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="luxury-input w-full bg-black/50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase text-text-secondary tracking-widest mb-3">{t.clientDashboard.checkOut}</label>
+                <input
+                  type="date"
+                  value={editDeparture}
+                  onChange={e => setEditDeparture(e.target.value)}
+                  min={editArrival || new Date().toISOString().split('T')[0]}
+                  className="luxury-input w-full bg-black/50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setEditingRes(null)}
+                className="flex-1 py-3 text-[10px] tracking-widest uppercase border border-border/50 text-text-muted hover:text-white transition-colors"
+              >
+                {t.clientDashboard.cancelEdit}
+              </button>
+              <button
+                onClick={handleSaveEditRes}
+                disabled={savingEdit}
+                className="flex-1 py-3 text-[10px] tracking-widest uppercase btn-luxury flex items-center justify-center gap-2"
+              >
+                {savingEdit ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingEdit ? t.clientDashboard.saving : t.clientDashboard.saveChanges}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ DELETE ACCOUNT MODAL ═══ */}
       {showDeleteModal && (

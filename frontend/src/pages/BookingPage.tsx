@@ -150,6 +150,11 @@ export default function BookingPage() {
   }, [step]);
 
   const handleNext = () => {
+    if (!user) {
+      // Redirect to auth and come back after login
+      navigate('/auth', { state: { from: window.location.pathname + window.location.search } });
+      return;
+    }
     if (step === 1) {
       if (!checkIn || !checkOut) { alert('Please select both Check-In and Check-Out dates.'); return; }
       if (isAvailable === false) { alert('This room is not available for the selected dates.'); return; }

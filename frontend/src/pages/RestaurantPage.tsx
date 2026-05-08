@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { Utensils, Clock, ConciergeBell, ShoppingBag, X, Plus, Minus, Star, CreditCard, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Utensils, Clock, ConciergeBell, ShoppingBag, X, Plus, Minus, Star, CreditCard, CheckCircle, Loader2, AlertTriangle, Users, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -27,6 +28,7 @@ const CATEGORIES = [
 export default function RestaurantPage() {
   const { t } = useLanguage();
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [reservationType, setReservationType] = useState('table');
@@ -50,6 +52,13 @@ export default function RestaurantPage() {
   const [resChildren, setResChildren] = useState('0');
   const [resRequests, setResRequests] = useState('');
   
+  // Multi-step table booking flow (per sequence diagram)
+  const [tableBookingStep, setTableBookingStep] = useState<'datetime' | 'tables' | 'confirm'>('datetime');
+  const [availableTables, setAvailableTables] = useState<any[]>([]);
+  const [selectedTable, setSelectedTable] = useState<any | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [tableBookingError, setTableBookingError] = useState('');
+
   // Checkout/Payment Flow States
   const [checkoutStep, setCheckoutStep] = useState<'none' | 'phone' | 'payment' | 'success'>('none');
   const [phoneInfo, setPhoneInfo] = useState('');
@@ -160,69 +169,121 @@ export default function RestaurantPage() {
   const cartTotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
   const cartCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
-  const handleBookTable = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Step 1: Check availability and fetch available tables
+  const handleCheckAvailability = async () => {
     if (!user) {
-      alert("Please log in to make a reservation.");
+      navigate('/auth', { state: { from: '/dining' } });
       return;
     }
-    
+    if (!resDate || !resTime) {
+      setTableBookingError('Please select both date and time.');
+      return;
+    }
+    setCheckingAvailability(true);
+    setTableBookingError('');
+    try {
+      const totalGuests = parseInt(resAdults) + parseInt(resChildren);
+      const pgTime = resTime.length === 5 ? `${resTime}:00` : resTime;
+
+      // Fetch all tables that can fit the guest count
+      const { data: allTables, error: tErr } = await supabase
+        .from('tables_restaurant')
+        .select('*')
+        .gte('capacite', totalGuests)
+        .order('numero_table');
+
+      if (tErr) throw tErr;
+
+      // Fetch already-booked tables for the chosen date/time
+      const { data: booked } = await supabase
+        .from('reservations_tables')
+        .select('table_id')
+        .eq('date_reservation', resDate)
+        .eq('heure_reservation', pgTime)
+        .neq('statut', 'annulee');
+
+      const bookedIds = new Set((booked || []).map((b: any) => b.table_id));
+      const free = (allTables || []).filter((t: any) => !bookedIds.has(t.id));
+
+      if (free.length === 0) {
+        setTableBookingError('No tables available for the selected date, time, and guest count. Please try different options.');
+        setAvailableTables([]);
+      } else {
+        setAvailableTables(free);
+        setTableBookingStep('tables');
+      }
+    } catch (err: any) {
+      setTableBookingError('Error checking availability: ' + (err.message || 'Unknown'));
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  // Step 2: Select a table
+  const handleSelectTable = (table: any) => {
+    setSelectedTable(table);
+    setTableBookingStep('confirm');
+  };
+
+  // Step 3: Confirm and save reservation
+  const handleConfirmTableBooking = async () => {
+    if (!user || !selectedTable) return;
+    setPaymentLoading(true);
+    setTableBookingError('');
     try {
       const { data: clientData, error: clientErr } = await supabase
         .from('clients')
         .select('id')
         .eq('utilisateur_id', user.id)
         .single();
-        
       if (clientErr) throw clientErr;
 
-      // Ensure time matches postgres time format
       const pgTime = resTime.length === 5 ? `${resTime}:00` : resTime;
-
-      const { data, error } = await supabase.rpc('book_restaurant_table', {
-        p_client_id: clientData.id,
-        p_date_reservation: resDate,
-        p_heure_reservation: pgTime,
-        p_adults: parseInt(resAdults),
-        p_children: parseInt(resChildren),
-        p_special_requests: resRequests || null
-      });
+      const { data, error } = await supabase
+        .from('reservations_tables')
+        .insert({
+          client_id: clientData.id,
+          table_id: selectedTable.id,
+          date_reservation: resDate,
+          heure_reservation: pgTime,
+          nombre_adultes: parseInt(resAdults),
+          nombre_enfants: parseInt(resChildren),
+          special_requests: resRequests || null,
+          statut: 'en_attente',
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
-      
-      if (!data.success) {
-        alert(data.error);
-        return;
-      }
-      
-      setReservationId(data.reservation_id);
-      
-      // Proceed to checkout steps
+      setReservationId(data.id);
+
+      // Move to payment checkout
       setPhoneInfo(profile?.telephone || '');
       setCheckoutStep('phone');
-      
     } catch (err: any) {
-      alert("Booking failed: " + (err.message || err.error || "Unknown error"));
+      setTableBookingError('Booking failed: ' + (err.message || 'Unknown'));
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
   const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneInfo) return;
-    // We could update the user's phone in the DB here, but for now just move to payment
     setCheckoutStep('payment');
   };
 
   const processPayment = () => {
     setPaymentLoading(true);
     setTimeout(async () => {
-      // Mock saving payment to 'paiements' table
       setPaymentLoading(false);
       setCheckoutStep('success');
+      // Reset the form
       setResDate('');
       setResRequests('');
-      
-      // close after delay
+      setSelectedTable(null);
+      setAvailableTables([]);
+      setTableBookingStep('datetime');
       setTimeout(() => setCheckoutStep('none'), 4000);
     }, 2500);
   };
@@ -577,55 +638,183 @@ export default function RestaurantPage() {
                 </button>
               </div>
 
-              <form className="space-y-5" onSubmit={reservationType === 'table' ? handleBookTable : handleRoomServiceOrder}>
+              <form className="space-y-5" onSubmit={reservationType === 'table' ? (e: React.FormEvent) => { e.preventDefault(); } : handleRoomServiceOrder}>
                 {reservationType === 'table' ? (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.date}</label>
-                        <input type="date" value={resDate} onChange={e => setResDate(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required />
-                      </div>
-                      <div>
-                        <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.time}</label>
-                        <select value={resTime} onChange={e => setResTime(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required>
-                          {['18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map(t => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                      </div>
+                    {/* Step indicator */}
+                    <div className="flex items-center gap-2 mb-2">
+                      {['datetime', 'tables', 'confirm'].map((s, i) => (
+                        <div key={s} className="flex items-center gap-2">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
+                            style={{
+                              background: tableBookingStep === s ? 'var(--gold)' : 'transparent',
+                              color: tableBookingStep === s ? '#0a0a0a' : 'var(--text-muted)',
+                              border: `1px solid ${tableBookingStep === s ? 'var(--gold)' : 'var(--border)'}`,
+                            }}
+                          >
+                            {i + 1}
+                          </div>
+                          {i < 2 && <div className="w-8 h-px" style={{ background: 'var(--border)' }} />}
+                        </div>
+                      ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.adults}</label>
-                        <select value={resAdults} onChange={e => setResAdults(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required>
-                          {[1,2,3,4,5,6,8].map(n => (
-                            <option key={n} value={n}>{n} {n === 1 ? 'Adult' : 'Adults'}</option>
-                          ))}
-                        </select>
+
+                    {/* STEP 1: Date, Time, Guests */}
+                    {tableBookingStep === 'datetime' && (
+                      <div className="space-y-5 animate-fade-in-up">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.date}</label>
+                            <input type="date" value={resDate} onChange={e => setResDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required />
+                          </div>
+                          <div>
+                            <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.time}</label>
+                            <select value={resTime} onChange={e => setResTime(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required>
+                              {['18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map(tt => (
+                                <option key={tt} value={tt}>{tt}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.adults}</label>
+                            <select value={resAdults} onChange={e => setResAdults(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }} required>
+                              {[1,2,3,4,5,6,8].map(n => (
+                                <option key={n} value={n}>{n} {n === 1 ? 'Adult' : 'Adults'}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.children}</label>
+                            <select value={resChildren} onChange={e => setResChildren(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                              {[0,1,2,3,4,5].map(n => (
+                                <option key={n} value={n}>{n} {n === 1 ? 'Child' : 'Children'}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        {tableBookingError && (
+                          <div className="flex items-center gap-2 p-3 border border-red-500/30 bg-red-500/10 text-red-400 text-xs animate-fade-in-up">
+                            <AlertTriangle size={14} /> {tableBookingError}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleCheckAvailability}
+                          disabled={checkingAvailability}
+                          className="btn-luxury w-full justify-center mt-4 flex items-center gap-2"
+                        >
+                          {checkingAvailability ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+                          {checkingAvailability ? 'Checking...' : 'Check Availability'}
+                        </button>
                       </div>
-                      <div>
-                        <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.children}</label>
-                        <select value={resChildren} onChange={e => setResChildren(e.target.value)} className="luxury-input w-full" style={{ background: 'rgba(0,0,0,0.3)' }}>
-                          {[0,1,2,3,4,5].map(n => (
-                            <option key={n} value={n}>{n} {n === 1 ? 'Child' : 'Children'}</option>
+                    )}
+
+                    {/* STEP 2: Select Table */}
+                    {tableBookingStep === 'tables' && (
+                      <div className="space-y-4 animate-fade-in-up">
+                        <div className="flex items-center justify-between">
+                          <p style={{ fontFamily: 'Montserrat', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {resDate} • {resTime} • {parseInt(resAdults) + parseInt(resChildren)} guests
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { setTableBookingStep('datetime'); setSelectedTable(null); setTableBookingError(''); }}
+                            className="text-[9px] uppercase tracking-widest text-gold hover:text-white transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                        <p style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '4px' }}>
+                          Available Tables ({availableTables.length})
+                        </p>
+                        <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                          {availableTables.map(table => (
+                            <button
+                              key={table.id}
+                              type="button"
+                              onClick={() => handleSelectTable(table)}
+                              className="w-full p-4 border text-left transition-all duration-300 hover:border-[var(--gold)] hover:bg-[rgba(201,168,76,0.05)] group"
+                              style={{ border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)' }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full border border-gold/30 bg-gold/5 flex items-center justify-center">
+                                    <MapPin size={16} className="text-gold" />
+                                  </div>
+                                  <div>
+                                    <p style={{ fontFamily: 'Cormorant Garamond', fontSize: '18px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                      Table {table.numero_table}
+                                    </p>
+                                    <p style={{ fontFamily: 'Montserrat', fontSize: '10px', color: 'var(--text-muted)' }}>
+                                      {table.emplacement || 'Main Hall'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-text-muted group-hover:text-gold transition-colors">
+                                  <Users size={14} />
+                                  <span style={{ fontFamily: 'Montserrat', fontSize: '11px' }}>{table.capacite} seats</span>
+                                </div>
+                              </div>
+                            </button>
                           ))}
-                        </select>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.specialRequests}</label>
-                      <textarea
-                        rows={2}
-                        value={resRequests}
-                        onChange={e => setResRequests(e.target.value)}
-                        placeholder="Dietary requirements, occasion..."
-                        className="luxury-input w-full resize-none"
-                        style={{ background: 'rgba(0,0,0,0.3)' }}
-                      />
-                    </div>
-                    <button type="submit" className="btn-luxury w-full justify-center mt-4" style={{ gap: '10px' }}>
-                      <Clock size={16} /> {t.restaurant.requestTable}
-                    </button>
+                    )}
+
+                    {/* STEP 3: Confirm */}
+                    {tableBookingStep === 'confirm' && selectedTable && (
+                      <div className="space-y-5 animate-fade-in-up">
+                        <div className="p-4 border border-gold/30 bg-gold/5">
+                          <p style={{ fontFamily: 'Montserrat', fontSize: '9px', fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>
+                            Reservation Summary
+                          </p>
+                          <div className="space-y-2 text-xs" style={{ fontFamily: 'Montserrat' }}>
+                            <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Table</span><span style={{ color: 'var(--text-primary)' }}>Table {selectedTable.numero_table} — {selectedTable.emplacement || 'Main Hall'}</span></div>
+                            <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Date</span><span style={{ color: 'var(--text-primary)' }}>{resDate}</span></div>
+                            <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Time</span><span style={{ color: 'var(--text-primary)' }}>{resTime}</span></div>
+                            <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>Guests</span><span style={{ color: 'var(--text-primary)' }}>{resAdults} Adults, {resChildren} Children</span></div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block mb-2" style={{ fontFamily: 'Montserrat', fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{t.restaurant.specialRequests}</label>
+                          <textarea
+                            rows={2}
+                            value={resRequests}
+                            onChange={e => setResRequests(e.target.value)}
+                            placeholder="Dietary requirements, occasion..."
+                            className="luxury-input w-full resize-none"
+                            style={{ background: 'rgba(0,0,0,0.3)' }}
+                          />
+                        </div>
+                        {tableBookingError && (
+                          <div className="flex items-center gap-2 p-3 border border-red-500/30 bg-red-500/10 text-red-400 text-xs animate-fade-in-up">
+                            <AlertTriangle size={14} /> {tableBookingError}
+                          </div>
+                        )}
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setTableBookingStep('tables')}
+                            className="flex-1 py-3 text-[10px] tracking-widest uppercase border text-text-muted hover:text-white transition-colors"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleConfirmTableBooking}
+                            disabled={paymentLoading}
+                            className="btn-luxury flex-1 justify-center flex items-center gap-2"
+                          >
+                            {paymentLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                            {paymentLoading ? 'Saving...' : t.restaurant.confirmBooking}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabase';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -17,7 +18,11 @@ export default function AuthPage() {
   const [resetSent, setResetSent] = useState(false);
   
   const { signIn, signUp, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+  // If user was redirected here from another page (e.g. booking), go back after login
+  const from = (location.state as any)?.from || '/account';
   const formRef = useRef<HTMLDivElement>(null);
   const decorRef = useRef<HTMLDivElement>(null);
 
@@ -32,8 +37,8 @@ export default function AuthPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (user) navigate('/account');
-  }, [user, navigate]);
+    if (user) navigate(from, { replace: true });
+  }, [user, navigate, from]);
 
   const handleGoogleSignIn = async () => {
     setLoadingLocal(true);
@@ -86,7 +91,7 @@ export default function AuthPage() {
     if (result.error) {
       alert(result.error.message);
     } else {
-      navigate('/account');
+      navigate(from, { replace: true });
     }
   };
 
@@ -160,7 +165,6 @@ export default function AuthPage() {
                               : 'Enter your designated email address to receive a secure password reset link.'}
                         </p>
                     </div>
-
                     {!resetSent ? (
                         <form onSubmit={handleForgotSubmit} className="space-y-8">
                             <div className="relative group">
@@ -199,10 +203,10 @@ export default function AuthPage() {
                     <div className="text-left mb-10">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-gold mb-4">Authentication</p>
                     <h1 className="text-3xl lg:text-4xl font-display text-white mb-3">
-                        {isLogin ? 'Welcome Back' : 'Create an Account'}
+                        {isLogin ? t.auth.welcome : t.auth.createAccount}
                     </h1>
                     <p className="text-xs text-text-muted font-light leading-relaxed">
-                        {isLogin ? 'Enter your credentials to manage your prestigious reservations.' : 'Join Velora Palace to unlock world-class privileges.'}
+                        {isLogin ? t.auth.signInTo : 'Join Velora Palace to unlock world-class privileges.'}
                     </p>
                     </div>
 
@@ -218,7 +222,7 @@ export default function AuthPage() {
                                className="block w-full px-4 pt-6 pb-2 text-sm text-white bg-black/30 border-b border-border/50 focus:outline-none focus:border-gold transition-colors duration-300 peer" 
                            />
                            <label className="absolute text-[10px] uppercase tracking-widest text-text-muted duration-300 transform -translate-y-3 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-3 peer-focus:text-gold">
-                               Full Legal Name
+                               {t.auth.fullName}
                            </label>
                         </div>
                     )}
@@ -233,7 +237,7 @@ export default function AuthPage() {
                             className="block w-full px-4 pt-6 pb-2 text-sm text-white bg-black/30 border-b border-border/50 focus:outline-none focus:border-gold transition-colors duration-300 peer" 
                         />
                         <label className="absolute text-[10px] uppercase tracking-widest text-text-muted duration-300 transform -translate-y-3 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-3 peer-focus:text-gold">
-                            Email Address
+                            {t.auth.email}
                         </label>
                     </div>
 
@@ -248,7 +252,7 @@ export default function AuthPage() {
                                 className="block w-full px-4 pt-6 pb-2 text-sm text-white bg-black/30 border-b border-border/50 focus:outline-none focus:border-gold transition-colors duration-300 peer" 
                             />
                             <label className="absolute text-[10px] uppercase tracking-widest text-text-muted duration-300 transform -translate-y-3 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-3 peer-focus:text-gold">
-                                Password
+                                {t.auth.password}
                             </label>
                         </div>
                         {isLogin && (
@@ -265,7 +269,10 @@ export default function AuthPage() {
                     </div>
 
                     <button type="submit" disabled={loadingLocal} className="btn-luxury w-full flex items-center justify-center gap-3 mt-8 py-4 shadow-gold">
-                        {loadingLocal ? 'Processing...' : (isLogin ? 'Sign In Securely' : 'Create Account')} <ArrowRight size={16} />
+                        {loadingLocal
+                          ? (isLogin ? t.auth.loggingIn : t.auth.signingUp)
+                          : (isLogin ? t.auth.signIn : t.auth.signUp)}
+                        <ArrowRight size={16} />
                     </button>
                     </form>
 
@@ -294,9 +301,9 @@ export default function AuthPage() {
 
                     <div className="mt-10 text-center font-light">
                        <p className="text-xs text-text-muted">
-                           {isLogin ? "Don't have an account?" : "Already hold an account?"}{' '}
+                           {isLogin ? t.auth.noAccount : t.auth.haveAccount}{' '}
                            <button onClick={() => setIsLogin(!isLogin)} className="text-gold font-medium tracking-wide hover:underline hover:text-gold-light transition-colors">
-                           {isLogin ? 'Register Here' : 'Sign In'}
+                           {isLogin ? t.auth.signUp : t.auth.signIn}
                            </button>
                        </p>
                     </div>
