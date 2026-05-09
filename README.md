@@ -1,5 +1,7 @@
 # 🏨 Plateforme Velora Palace
 
+THE LINK OF DEMO : https://velora-palace-hotel-system.vercel.app/
+
 Un système complet de gestion d'hôtel et de restaurant de luxe, comprenant une interface utilisateur élégante (Frontend) et un tableau de bord d'administration robuste (Backend), propulsé par Supabase.
 
 ## 🚀 Guide de Démarrage Rapide
